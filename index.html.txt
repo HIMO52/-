@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>放置クリッカーツリー</title>
+<style>
+  body {
+    font-family: "Segoe UI", sans-serif;
+    background: linear-gradient(180deg, #0a141e, #112235);
+    color: #e8f4e3;
+    text-align: center;
+    margin: 0;
+    padding: 20px;
+  }
+  h1 { color: #6fff81; }
+  button {
+    background: #2a5330;
+    color: white;
+    font-size: 18px;
+    border: none;
+    border-radius: 10px;
+    padding: 15px 25px;
+    cursor: pointer;
+  }
+  button:hover { background: #357c42; }
+  .stats { margin: 20px; font-size: 18px; }
+  .tree {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+  .upgrade {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 10px;
+    width: 180px;
+  }
+  .locked { opacity: 0.5; }
+</style>
+</head>
+<body>
+  <h1>🌳 放置クリッカーツリー 🌳</h1>
+  <div class="stats">
+    <div>ポイント: <span id="points">0</span></div>
+    <div>自動獲得: <span id="auto">0</span> /秒</div>
+  </div>
+  <button id="clickBtn">クリックで +1</button>
+
+  <h2>アップグレードツリー</h2>
+  <div class="tree" id="tree"></div>
+
+  <script>
+    let points = 0;
+    let autoRate = 0;
+    const upgrades = [
+      {id:1,name:"芽🌱",desc:"+0.5/秒",cost:20,bonus:0.5,unlock:[]},
+      {id:2,name:"小枝🌿",desc:"+2/秒",cost:100,bonus:2,unlock:[1]},
+      {id:3,name:"若木🌲",desc:"+8/秒",cost:500,bonus:8,unlock:[2]},
+      {id:4,name:"大樹🌳",desc:"+50/秒",cost:2000,bonus:50,unlock:[3]},
+      {id:5,name:"神木🌸",desc:"+500/秒",cost:10000,bonus:500,unlock:[4]}
+    ];
+    let owned = JSON.parse(localStorage.getItem("owned") || "[]");
+    let lastTime = Number(localStorage.getItem("lastTime")) || Date.now();
+
+    const elPoints = document.getElementById("points");
+    const elAuto = document.getElementById("auto");
+    const elTree = document.getElementById("tree");
+    const btn = document.getElementById("clickBtn");
+
+    // 放置時間分を補填
+    const now = Date.now();
+    const diffSec = (now - lastTime)/1000;
+    let autoSum = 0;
+    for (const id of owned){
+      const up = upgrades.find(u=>u.id===id);
+      if(up) autoSum += up.bonus;
+    }
+    points += autoSum * diffSec;
+
+    // UI構築
+    function render(){
+      elPoints.textContent = Math.floor(points);
+      elAuto.textContent = autoSum.toFixed(1);
+      elTree.innerHTML = "";
+      for (const u of upgrades){
+        const locked = u.unlock.some(req=>!owned.includes(req));
+        const has = owned.includes(u.id);
+        const div = document.createElement("div");
+        div.className = "upgrade" + (locked&&!has?" locked":"");
+        div.innerHTML = `<h3>${u.name}</h3><p>${u.desc}</p>
+          <p>💰${u.cost}</p>
+          <button ${locked||has||points<u.cost?"disabled":""}>購入</button>`;
+        div.querySelector("button").onclick = ()=>{
+          if(points>=u.cost && !has){
+            points -= u.cost;
+            owned.push(u.id);
+            autoSum += u.bonus;
+            save();
+            render();
+          }
+        };
+        elTree.appendChild(div);
+      }
+    }
+
+    function save(){
+      localStorage.setItem("points", points);
+      localStorage.setItem("owned", JSON.stringify(owned));
+      localStorage.setItem("lastTime", Date.now());
+    }
+
+    btn.onclick = ()=>{
+      points++;
+      render();
+      save();
+    };
+
+    setInterval(()=>{
+      points += autoSum / 10;
+      render();
+    },100);
+
+    window.addEventListener("beforeunload", save);
+
+    render();
+  </script>
+</body>
+</html>
